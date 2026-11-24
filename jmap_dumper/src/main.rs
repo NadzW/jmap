@@ -83,6 +83,10 @@ struct Cli {
     #[arg(long)]
     all: bool,
 
+    /// Infer missing bitmask UI metadata from flag names and matching enums (heuristic)
+    #[arg(long)]
+    infer_bitmasks: bool,
+
     /// Dump FName table
     #[arg(long)]
     names: bool,
@@ -192,7 +196,7 @@ fn main() -> Result<()> {
         module: cli.module.clone(),
     };
 
-    let reflection_data: Jmap = if let Some(path) = cli.jmap {
+    let mut reflection_data: Jmap = if let Some(path) = cli.jmap {
         let filename = path.file_name().unwrap().to_str().unwrap();
         if filename.ends_with(".jmap.gz") {
             let compressed = std::fs::read(path)?;
@@ -212,6 +216,10 @@ fn main() -> Result<()> {
     } else {
         unreachable!();
     };
+
+    if cli.infer_bitmasks {
+        jmap_dumper::infer_bitmasks(&mut reflection_data);
+    }
 
     let stdout = std::io::stdout();
     let mut out: BufWriter<Box<dyn Write>> = BufWriter::new(if to_stdout {
@@ -261,9 +269,18 @@ fn summary(jmap: &Jmap) -> String {
         if let Some(cl) = &meta.build_change_list {
             parts.push(cl.clone());
         }
+        if let Some(capture) = &meta.reflection_metadata {
+            parts.push(format!(
+                "metadata(properties={}, objects={}, enum_entries={}, errors={})",
+                capture.property_maps, capture.object_maps, capture.enum_entry_maps, capture.read_errors
+            ));
+        }
     }
     parts.push(format!("{} objects", jmap.objects.len()));
     parts.push(format!("{} vtables", jmap.vtables.len()));
+    if let Some(inference) = &jmap.bitmask_inference {
+        parts.push(format!("inferred_bitmasks(applied={}, skipped={})", inference.applied.len(), inference.skipped.len()));
+    }
     let warnings = diag::warning_count();
     if warnings > 0 {
         parts.push(format!("{warnings} warnings"));
@@ -410,5 +427,6 @@ fn into_usmap_prop_inner(prop: &jmap::PropertyType) -> usmap::PropertyInner {
         },
         PT::Utf8Str => PI::Utf8Str,
         PT::AnsiStr => PI::AnsiStr,
+        PT::VerseString => PI::Unknown,
     }
 }

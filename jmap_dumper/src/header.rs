@@ -118,6 +118,7 @@ fn property_type_name(objects: &Objects, prop: &Property) -> String {
         }
         PropertyType::Utf8Str => "char*".into(),
         PropertyType::AnsiStr => "char*".into(),
+        PropertyType::VerseString => "Verse::FNativeString".into(),
     }
 }
 

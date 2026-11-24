@@ -1,4 +1,7 @@
 pub mod containers;
+mod bitmask_inference;
+pub use bitmask_inference::infer_bitmasks;
+mod reflection_metadata;
 pub mod diag;
 mod header;
 pub mod mem;
@@ -806,6 +809,12 @@ async fn dump_inner(mem: Ctx, source_name: &str, options: DumpOptions) -> Result
         }
     }
 
+    let reflection_metadata = if options.skip_objects {
+        None
+    } else {
+        Some(reflection_metadata::capture(&mem, &mut objects).await)
+    };
+
     let vtables = if options.skip_vtables {
         BTreeMap::new()
     } else {
@@ -819,7 +828,9 @@ async fn dump_inner(mem: Ctx, source_name: &str, options: DumpOptions) -> Result
     };
 
     Ok(Jmap {
+        bitmask_inference: None,
         metadata: Some(Metadata {
+            reflection_metadata,
             tool: "https://github.com/trumank/jmap".to_string(),
             timestamp: time::OffsetDateTime::now_utc().to_string(),
             source: source_name.to_string(),
@@ -1048,6 +1059,8 @@ pub async fn read_prop_type(ptr: &Ptr<ZProperty>) -> Result<Property> {
                 .await?
                 .into(),
         }
+    } else if f.contains(EClassCastFlags::CASTCLASS_FVerseStringProperty) {
+        PropertyType::VerseString
     } else if f.contains(EClassCastFlags::CASTCLASS_FUtf8StrProperty) {
         PropertyType::Utf8Str
     } else if f.contains(EClassCastFlags::CASTCLASS_FAnsiStrProperty) {
@@ -1058,6 +1071,7 @@ pub async fn read_prop_type(ptr: &Ptr<ZProperty>) -> Result<Property> {
 
     let prop = ptr.cast::<ZProperty>();
     Ok(Property {
+        metadata: Default::default(),
         address: ptr.address().into(),
         name,
         offset: prop.offset_internal().read().await? as usize,
@@ -1290,6 +1304,10 @@ pub async fn read_prop(
         return Ok(None);
     } else if f.contains(EClassCastFlags::CASTCLASS_FOptionalProperty) {
         return Ok(None);
+    } else if f.contains(EClassCastFlags::CASTCLASS_FVerseStringProperty) {
+        // Schema is supported, but don't attempt to interpret the
+        // runtime Verse string representation as FString/FUtf8String.
+        return Ok(None);
     } else if f.contains(EClassCastFlags::CASTCLASS_FUtf8StrProperty) {
         PropertyValue::Utf8Str(ptr.cast::<FUtf8String>().read().await?)
     } else if f.contains(EClassCastFlags::CASTCLASS_FAnsiStrProperty) {
@@ -1308,6 +1326,7 @@ pub async fn read_object(obj: &Ptr<UObject>) -> Result<Object> {
     let class_name = class.path().await?;
 
     Ok(Object {
+        metadata: Default::default(),
         address: obj.address().into(),
         vtable: (obj.vtable().read().await? as u64).into(),
         object_flags: obj.object_flags().read().await?,
@@ -1378,6 +1397,7 @@ pub async fn read_enum(obj: &Ptr<UEnum>) -> Result<Enum> {
         None
     };
     Ok(Enum {
+        entry_metadata: Default::default(),
         object: read_object(&obj.cast()).await?,
         cpp_type: obj.cpp_type().read().await?,
         cpp_form: obj.cpp_form().read().await?,

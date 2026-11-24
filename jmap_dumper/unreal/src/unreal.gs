@@ -261,9 +261,27 @@ struct FWorldTileInfo {
 
 /// TEST
 class UMetaData : UObject {
-    TMap<STUB, TMap<FName, FString>> ObjectMetaDataMap;
+    TMap<FWeakMetadataObject, TMap<FName, FString>> ObjectMetaDataMap;
     if (UE_VERSION >= 413 && UE_VERSION < 506) TMap<FName, FString> RootMetaDataMap;
 };
+
+// Named layouts for native TMap sparse-array elements, including hash links.
+struct FWeakMetadataObject {
+    int32_t ObjectIndex;
+    int32_t ObjectSerialNumber;
+};
+struct FMetadataValueElement {
+    TTuple<FName, FString> Value;
+    int32_t HashNextId;
+    int32_t HashIndex;
+};
+struct FMetadataObjectElement {
+    TTuple<FWeakMetadataObject, TMap<FName, FString>> Value;
+    int32_t HashNextId;
+    int32_t HashIndex;
+};
+struct FMetadataValuePair { FName Key; FString Value; };
+struct FMetadataObjectPair { FWeakMetadataObject Key; TMap<FName, FString> Value; };
 
 /// TEST
 struct FObjectInstancingGraph {

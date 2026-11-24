@@ -37,6 +37,20 @@ It contains:
 It also does light VTables analysis and dumps approximate VTables for all UObjects found.
 
 ## [jmap](jmap)
+JMAP dumps preserve available reflection metadata in object/property `metadata`
+maps and enum `entry_metadata` maps, including `Bitmask`, `BitmaskEnum`, `Bitflags`,
+`UseEnumValuesAsMaskValuesInEditor`, display names and hidden entries. Capture
+counts/layout availability are recorded in `metadata.reflection_metadata`.
+Shipping builds may strip this data. Optional `--infer-bitmasks` adds heuristic
+annotations for Int32 properties containing a flag word, using enum-name matches,
+owning package/type context, and enum values. Ambiguous matches/modes are skipped.
+Original flags, numbers, offsets and defaults are preserved. Applied/skipped
+decisions are recorded separately in `bitmask_inference`; they are not counted
+as captured reflection metadata. It also works offline with `--jmap old.jmap
+--infer-bitmasks new.jmap`. Explicit metadata takes precedence.
+Use `--editor` only when dumping an actual editor build. Package metadata capture
+currently supports UE 4.20–5.5; newer layouts still support available FField maps.
+
 Crate for reading/writing .jmap files.
 
 ## [usmap](usmap)

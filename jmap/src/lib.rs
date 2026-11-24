@@ -418,6 +418,8 @@ bitflags::bitflags! {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Jmap {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bitmask_inference: Option<BitmaskInferenceInfo>,
     pub metadata: Option<Metadata>,
     pub image_base_address: Address,
     pub objects: BTreeMap<String, ObjectType>,
@@ -426,8 +428,34 @@ pub struct Jmap {
     pub names: Option<BTreeMap<u32, String>>,
 }
 
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct BitmaskInferenceInfo {
+    pub method: String,
+    pub considered: usize,
+    pub applied: Vec<InferredBitmask>,
+    pub skipped: Vec<SkippedBitmask>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InferredBitmask {
+    pub property: String,
+    pub r#enum: String,
+    pub mode: String,
+    pub score: i32,
+    pub reason: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SkippedBitmask {
+    pub property: String,
+    pub reason: String,
+    pub candidates: Vec<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Metadata {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reflection_metadata: Option<ReflectionMetadataInfo>,
     /// Name or URL of tool used create the reflection data dump
     pub tool: String,
     /// ISO 8601
@@ -438,6 +466,16 @@ pub struct Metadata {
     pub build_change_list: Option<String>,
 }
 
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ReflectionMetadataInfo {
+    pub field_metadata_layout: bool,
+    pub package_metadata_layout: bool,
+    pub property_maps: usize,
+    pub object_maps: usize,
+    pub enum_entry_maps: usize,
+    pub read_errors: usize,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EngineVersion {
     pub major: u16,
@@ -446,6 +484,8 @@ pub struct EngineVersion {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Object {
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub metadata: BTreeMap<String, String>,
     pub address: Address,
     pub vtable: Address,
     pub object_flags: EObjectFlags,
@@ -501,6 +541,8 @@ pub struct Function {
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Enum {
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub entry_metadata: BTreeMap<String, BTreeMap<String, String>>,
     #[serde(flatten)]
     pub object: Object,
     pub cpp_type: String,
@@ -578,6 +620,8 @@ pub struct ImplementedInterface {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Property {
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub metadata: BTreeMap<String, String>,
     pub address: Address,
     pub name: String,
     pub offset: usize,
@@ -675,6 +719,8 @@ pub enum PropertyType {
     Utf8Str,
     #[serde(rename = "AnsiStrProperty")]
     AnsiStr,
+    #[serde(rename = "VerseStringProperty")]
+    VerseString,
 }
 mod map_as_pairs {
     use super::PropertyValue;
